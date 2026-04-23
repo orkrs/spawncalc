@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdaptiveMobs | 3D-Визуализатор Спавна</title>
+    <style>
+        :root {
+            --bg: #121212;
+            --accent: #9D68FF;
+            --accent-glow: rgba(157, 104, 255, 0.6);
+            --text: #FDFDFD;
+            --glass-bg: rgba(18, 18, 18, 0.4);
+            --glass-border: rgba(253, 253, 253, 0.1);
+            --glass-panel-bg: rgba(253, 253, 253, 0.05);
+        }
+
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* --- 3D Canvas --- */
+        #bg-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            z-index: 1;
+        }
+
+        /* --- СЕВЕРНОЕ СИЯНИЕ (AURORA) --- */
+        .aurora {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 0;
+            background: 
+                radial-gradient(circle at 15% 50%, rgba(157, 104, 255, 0.25) 0%, transparent 40%),
+                radial-gradient(circle at 85% 30%, rgba(100, 50, 200, 0.2) 0%, transparent 40%),
+                radial-gradient(circle at 50% 80%, rgba(60, 20, 150, 0.25) 0%, transparent 50%);
+            filter: blur(80px);
+            animation: aurora-move 12s infinite alternate ease-in-out;
+        }
+        @keyframes aurora-move {
+            0% { transform: scale(1.0) translate(0, 0); }
+            100% { transform: scale(1.1) translate(-3%, 2%); }
+        }
+
+        /* --- UI Панели (GLASSMORPHISM) --- */
+        .ui-panel {
+            position: fixed;
+            z-index: 10;
+            top: 2rem;
+            left: 2rem;
+            width: 400px;
+            max-height: calc(100vh - 4rem);
+            overflow-y: auto;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 2rem;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Стилизация скроллбара для панели */
+        .ui-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+        .ui-panel::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .ui-panel::-webkit-scrollbar-thumb {
+            background: var(--glass-border);
+            border-radius: 10px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            text-shadow: 0 0 15px var(--accent-glow);
+        }
+        
+        h2 { 
+            font-size: 1rem; 
+            margin-bottom: 1rem; 
+            margin-top: 1.5rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.9; 
+        }
+
+        .input-group { 
+            margin-bottom: 1.2rem; 
+            background: var(--glass-panel-bg);
+            padding: 10px 15px;
+            border-radius: 14px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .input-header { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 8px; 
+            font-size: 0.85rem; 
+            opacity: 0.9; 
+        }
+
+        .val-badge { 
+            background: rgba(157, 104, 255, 0.2); 
+            padding: 2px 8px; 
+            border-radius: 12px; 
+            font-weight: bold; 
+            color: #d8b4ff; 
+        }
+
+        input[type=range] { 
+            -webkit-appearance: none; 
+            width: 100%; 
+            background: transparent; 
+        }
+
+        input[type=range]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track { 
+            width: 100%; 
+            height: 6px; 
+            background: rgba(253, 253, 253, 0.2); 
+            border-radius: 3px; 
+        }
+
+        input[type=range]::-webkit-slider-thumb { 
+            -webkit-appearance: none; 
+            height: 18px; 
+            width: 18px; 
+            border-radius: 50%; 
+            background: var(--accent); 
+            cursor: pointer; 
+            margin-top: -6px; 
+            box-shadow: 0 0 10px var(--accent-glow); 
+            transition: transform 0.1s; 
+        }
+
+        input[type=range]:not(:disabled):hover::-webkit-slider-thumb { 
+            transform: scale(1.2); 
+        }
+
+        .result-wrapper { 
+            text-align: center; 
+            margin-bottom: 1rem;
+        }
+
+        .progress-val { 
+            font-size: 3.5rem; 
+            font-weight: 800; 
+            color: var(--text); 
+            text-shadow: 0 0 20px var(--accent-glow); 
+            line-height: 1;
+        }
+
+        .progress-label { 
+            font-size: 0.85rem; 
+            opacity: 0.7; 
+            margin-top: 5px; 
+        }
+
+        .factors-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 1.5rem;
+        }
+
+        .factor-card {
+            background: var(--glass-panel-bg);
+            border: 1px solid var(--glass-border);
+            padding: 8px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #ccc;
+        }
+
+        .factor-card span {
+            display: block;
+            font-weight: bold;
+            font-size: 1rem;
+            margin-top: 4px;
+        }
+
+        .good { color: #32d74b; }
+        .warn { color: #ffd60a; }
+        .bad { color: #ff453a; }
+
+        .recommendation { 
+            background: rgba(157, 104, 255, 0.1); 
+            border-left: 4px solid var(--accent); 
+            padding: 1rem; 
+            border-radius: 0 12px 12px 0; 
+            font-size: 0.9rem; 
+            line-height: 1.5; 
+            text-align: left; 
+        }
+
+        .recommendation h3 { 
+            margin-bottom: 8px; 
+            font-size: 1rem; 
+            color: #d8b4ff;
+        }
+        
+        .instructions {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            padding: 1rem 2rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            font-size: 0.95rem;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            letter-spacing: 0.5px;
+        }
+
+        .instructions b { color: var(--accent); }
+
+        @media (max-width: 900px) {
+            .ui-panel { width: calc(100% - 4rem); max-height: 50vh; }
+            .instructions { width: 90%; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="aurora"></div>
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="ui-panel">
+        <h1>Визуальный Калькулятор</h1>
+
+        <div class="result-wrapper">
+             <div class="progress-val" id="out-total">100%</div>
+             <div class="progress-label">Итоговая вероятность спавна</div>
+        </div>
+
+        <div class="factors-grid">
+            <div class="factor-card">Дистанция<span id="out-donut" class="good">x1.00</span></div>
+            <div class="factor-card">Высота<span id="out-height" class="good">x1.00</span></div>
+            <div class="factor-card">Скорость<span id="out-vel" class="good">x1.00</span></div>
+            <div class="factor-card">Фермы<span id="out-turn" class="good">x1.00</span></div>
+        </div>
+       
+        <h2>Сцена (Автоматически)</h2>
+         <div class="input-group">
+            <div class="input-header">
+                <label>До ближайшего моба (D)</label>
+                <span class="val-badge" id="val-dist">0 бл.</span>
+            </div>
+            <input type="range" id="in-dist" min="0" max="150" value="0" step="1" disabled>
+        </div>
+        <div class="input-group">
+            <div class="input-header">
+                <label>Глубина моба (Y)</label>
+                <span class="val-badge" id="val-dy">0 бл.</span>
+            </div>
+            <input type="range" id="in-dy" min="-60" max="20" value="0" step="1" disabled>
+        </div>
+        <div class="input-group">
+            <div class="input-header">
+                <label>Ваших мобов (Лимит)</label>
+                <span class="val-badge" id="val-mobs">0 шт.</span>
+            </div>
+            <input type="range" id="in-mobs" min="0" max="500" value="0" step="1" disabled>
+        </div>
+
+        <h2>Ситуация (Вручную)</h2>
+        <div class="input-group">
+            <div class="input-header">
+                <label>Ваша скорость</label>
+                <span class="val-badge" id="val-speed">0.0 м/с</span>
+            </div>
+            <input type="range" id="in-speed" min="0" max="20" value="0" step="0.5">
+        </div>
+         <div class="input-group">
+            <div class="input-header">
+                <label>Turnover чанка (Смерти/Спавны)</label>
+                <span class="val-badge" id="val-ratio">1.0</span>
+            </div>
+            <input type="range" id="in-ratio" min="0" max="1" value="1" step="0.05">
+        </div>
+        <div class="input-group">
+            <div class="input-header">
+                <label>Игроков рядом</label>
+                <span class="val-badge" id="val-players">1 чел.</span>
+            </div>
+            <input type="range" id="in-players" min="1" max="10" value="1" step="1">
+        </div>
+
+         <div class="recommendation">
+            <h3>💡 Рекомендация:</h3>
+            <p id="recommendation-text">Кликните по сетке справа, чтобы поставить моба, и посмотрите, как изменятся шансы спавна!</p>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <b>Вращать:</b> ЛКМ | <b>Зум:</b> Колесико | <b>Двигать игрока (цилиндр):</b> ЛКМ + Тянуть | <b>Мобы:</b> Клик по сетке
+    </div>
+
+    <!-- Подключение библиотеки Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.163.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 1. НАСТРОЙКА 3D СЦЕНЫ ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bg-canvas'), antialias: true, alpha: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        // Контроллер камеры
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05; // Не даем опуститься ниже земли
+        camera.position.set(0, 80, 120);
+        controls.target.set(0, 0, 0);
+
+        // Свет
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+        dirLight.position.set(50, 100, 50);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.left = -100;
+        dirLight.shadow.camera.right = 100;
+        dirLight.shadow.camera.top = 100;
+        dirLight.shadow.camera.bottom = -100;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        // Сетка и невидимый пол для Raycaster (чтобы ловить клики)
+        const grid = new THREE.GridHelper(300, 30, 0xffffff, 0xffffff);
+        grid.material.opacity = 0.1;
+        grid.material.transparent = true;
+        scene.add(grid);
+
+        const groundPlaneGeometry = new THREE.PlaneGeometry(500, 500);
+        groundPlaneGeometry.rotateX(-Math.PI / 2);
+        const groundPlaneMesh = new THREE.Mesh(groundPlaneGeometry, new THREE.MeshBasicMaterial({visible: false}));
+        scene.add(groundPlaneMesh);
+
+        // --- 2. ИГРОК И КОЛЬЦА ---
+        const player = new THREE.Group();
+        
+        // Цилиндр (Игрок)
+        const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x9D68FF, roughness: 0.2, metalness: 0.5 });
+        const playerBody = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 8, 32), playerMaterial);
+        playerBody.position.y = 4;
+        playerBody.castShadow = true;
+        player.add(playerBody);
+        scene.add(player);
+        
+        // Кольца (Правило Пончика)
+        const donutGroup = new THREE.Group();
+        
+        function createRing(radius, color, yOffset) {
+            const geometry = new THREE.RingGeometry(radius - 0.5, radius + 0.5, 64);
+            const material = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.position.y = yOffset;
+            return mesh;
+        }
+
+        donutGroup.add(createRing(10, 0xff453a, 0.1)); // Красная зона (<10)
+        donutGroup.add(createRing(20, 0xffd60a, 0.2)); // Желтая зона (10-20)
+        donutGroup.add(createRing(80, 0x32d74b, 0.3)); // Зеленая зона (20-80)
+        scene.add(donutGroup);
+
+        // --- 3. МОБЫ ---
+        let mobs =[];
+        const mobGeometry = new THREE.BoxGeometry(4, 4, 4);
+        const mobMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.7 });
+        const selectedMobMaterial = new THREE.MeshStandardMaterial({ color: 0xffd60a, emissive: 0x555500 });
+        
+        function addMob(x, y, z) {
+            const mob = new THREE.Mesh(mobGeometry, mobMaterial);
+            mob.position.set(x, Math.max(2, y), z); // Минимум на земле
+            mob.castShadow = true;
+            mobs.push(mob);
+            scene.add(mob);
+        }
+
+        // --- 4. ВЗАИМОДЕЙСТВИЕ (МЫШЬ / РЕЙКАСТ) ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let draggedObject = null;
+
+        // Движение мыши
+        window.addEventListener('pointermove', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            if (draggedObject) {
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(groundPlaneMesh);
+                if (intersects.length > 0) {
+                    draggedObject.position.x = intersects[0].point.x;
+                    draggedObject.position.z = intersects[0].point.z;
+                    updateUIFromScene();
+                }
+            }
+        });
+
+        // Клик (Нажатие)
+        window.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) return; // Только ЛКМ
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Проверка попадания по игроку для перетаскивания
+            const playerIntersect = raycaster.intersectObject(playerBody);
+            if (playerIntersect.length > 0) {
+                draggedObject = player;
+                controls.enabled = false; // Отключаем вращение камеры
+                return;
+            }
+        });
+        
+        // Отпускание клика
+        window.addEventListener('pointerup', (event) => {
+            if (event.button !== 0) return;
+
+            if (draggedObject) {
+                draggedObject = null;
+                controls.enabled = true; // Включаем вращение камеры
+            } else {
+                // Если не тащили, значит это клик. Проверяем мобов и землю
+                raycaster.setFromCamera(mouse, camera);
+                
+                // Пробуем удалить моба
+                const mobIntersects = raycaster.intersectObjects(mobs);
+                if (mobIntersects.length > 0) {
+                    const obj = mobIntersects[0].object;
+                    scene.remove(obj);
+                    mobs = mobs.filter(m => m !== obj);
+                } else {
+                    // Ставим нового моба на сетку
+                    const groundIntersects = raycaster.intersectObject(groundPlaneMesh);
+                    if (groundIntersects.length > 0) {
+                        // Добавляем случайную высоту (пещеру) для теста алгоритма высоты
+                        // Если кликнуть с зажатым Shift, моб появится под землей
+                        let spawnY = 2;
+                        if (event.shiftKey) spawnY = -20; 
+                        addMob(groundIntersects[0].point.x, spawnY, groundIntersects[0].point.z);
+                    }
+                }
+            }
+            updateUIFromScene();
+        });
+
+        // --- 5. СВЯЗЬ ЛОГИКИ С UI ---
+        const manualInputs =['speed', 'ratio', 'players'];
+        manualInputs.forEach(id => {
+            document.getElementById(`in-${id}`).addEventListener('input', (e) => {
+                let val = e.target.value;
+                let suffix = '';
+                if(id === 'speed') suffix = ' м/с';
+                else if(id === 'players') suffix = ' чел.';
+                document.getElementById(`val-${id}`).innerText = val + suffix;
+                calculateSpawnRate();
+            });
+        });
+
+        function formatFactor(val) {
+            let className = "good";
+            if (val < 0.95) className = "warn";
+            if (val < 0.4) className = "bad";
+            return `<span class="${className}">x${val.toFixed(2)}</span>`;
+        }
+
+        // Обновление параметров на основе 3D сцены
+        function updateUIFromScene() {
+            document.getElementById('in-mobs').value = mobs.length;
+            document.getElementById('val-mobs').innerText = `${mobs.length} шт.`;
+
+            // Сброс цвета всем мобам
+            mobs.forEach(m => m.material = mobMaterial);
+
+            if(mobs.length > 0) {
+                let closestMob = null;
+                let minDistance = Infinity;
+                
+                mobs.forEach(mob => {
+                    // Считаем 2D дистанцию (X Z) как в алгоритме пончика
+                    const dx = player.position.x - mob.position.x;
+                    const dz = player.position.z - mob.position.z;
+                    const dist = Math.sqrt(dx*dx + dz*dz);
+                    
+                    if(dist < minDistance) {
+                        minDistance = dist;
+                        closestMob = mob;
+                    }
+                });
+
+                closestMob.material = selectedMobMaterial;
+                
+                // Высота считается относительно центра игрока
+                const heightDiff = closestMob.position.y - playerBody.position.y;
+                
+                document.getElementById('in-dist').value = minDistance.toFixed(1);
+                document.getElementById('val-dist').innerText = `${minDistance.toFixed(1)} бл.`;
+                document.getElementById('in-dy').value = heightDiff.toFixed(1);
+                document.getElementById('val-dy').innerText = `${heightDiff.toFixed(1)} бл.`;
+            } else {
+                document.getElementById('in-dist').value = 0;
+                document.getElementById('val-dist').innerText = `N/A`;
+                document.getElementById('in-dy').value = 0;
+                document.getElementById('val-dy').innerText = `N/A`;
+            }
+
+            // Кольца следуют за игроком
+            donutGroup.position.x = player.position.x;
+            donutGroup.position.z = player.position.z;
+
+            calculateSpawnRate();
+        }
+        
+        // Точная математика AdaptiveMobs
+        function calculateSpawnRate() {
+            let dist = parseFloat(document.getElementById('in-dist').value);
+            let dy = parseFloat(document.getElementById('in-dy').value);
+            let mobsCount = parseInt(document.getElementById('in-mobs').value);
+
+            let speed = parseFloat(document.getElementById('in-speed').value);
+            let ratio = parseFloat(document.getElementById('in-ratio').value);
+            let players = parseInt(document.getElementById('in-players').value);
+            
+            // 1. Правило Пончика
+            let pDonut = 1.0;
+            if (dist < 10) pDonut = 0.0; 
+            else if (dist < 20) pDonut = (dist - 10) / 10.0; 
+            else if (dist <= 80) pDonut = 1.0; 
+            else if (dist <= 100) pDonut = 1.0 - ((dist - 80) / 20.0); 
+            else pDonut = 0.0;
+            if (mobs.length === 0) pDonut = 1.0; // Заглушка если нет мобов
+
+            // 2. Скорость
+            let pVel = (speed > 5.5) ? Math.exp(-4.0 * (speed - 5.5)) : 1.0;
+
+            // 3. Высота (Гаусс со сдвигом 12)
+            let pHeight = 1.0;
+            if (dy < -5) { 
+                let x = Math.abs(dy) - 5; 
+                pHeight = Math.exp(-Math.pow(x - 12.0, 2) / (2 * Math.pow(10.0, 2))); 
+            }
+
+            // 4. Текучесть кадров (Turnover)
+            let pTurn = 1.0;
+            if (ratio <= 0.6) { 
+                pTurn = 1.0 / (1.0 + Math.exp(8.0 * (0.3 - ratio))); 
+            }
+
+            // 5. Лимиты
+            let pFair = 1.0;
+            let softLimit = 100 * (1.0 + (players - 1) * 0.7);
+            if (mobsCount > softLimit) pFair = 0.4; 
+            else if (mobsCount < softLimit / 2) pFair = 1.3;
+            
+            // ИТОГО
+            let pTotal = pDonut * pVel * pHeight * pTurn * pFair;
+            pTotal = Math.max(0, Math.min(1.0, pTotal)); // Ограничитель 0-100%
+            
+            document.getElementById('out-total').innerText = (pTotal * 100).toFixed(0) + "%";
+            
+            // Обновление плашек факторов
+            document.getElementById('out-donut').innerHTML = formatFactor(pDonut);
+            document.getElementById('out-height').innerHTML = formatFactor(pHeight);
+            document.getElementById('out-vel').innerHTML = formatFactor(pVel);
+            document.getElementById('out-turn').innerHTML = formatFactor(pTurn);
+
+            // Текстовая рекомендация
+            let recText = "";
+            if (mobs.length === 0) {
+                recText = "Кликните левой кнопкой мыши по любой точке на сетке, чтобы создать моба и начать анализ!";
+            } else if (pDonut < 0.5) {
+                recText = "⚠️ <b>Слишком близко/далеко:</b> Желтый моб находится вне идеальной зоны. Спавн внутри красного кольца невозможен. Зеленое кольцо - идеальная зона.";
+            } else if (pHeight < 0.7) {
+                recText = "🦇 <b>Глубина:</b> Моб находится слишком глубоко под вами в пещере. Система срезала шанс спавна. (Для теста удалите моба и создайте нового).";
+            } else if (pVel < 0.8) {
+                recText = "🏃 <b>Слишком быстро:</b> Вы поставили высокую скорость в левой панели. Сервер не спавнит мобов при быстром полете на элитрах.";
+            } else if (pFair < 0.5) {
+                recText = "🛑 <b>Достигнут лимит:</b> Вы накликали слишком много мобов на сцену! Удалите лишних (клик по мобу) или увеличьте количество игроков рядом.";
+            } else if (pTurn < 0.8) {
+                recText = "🚜 <b>Фармилка:</b> Показатель Turnover слишком низкий (мобы не умирают). Сервер считает это лаг-машиной и блокирует спавн.";
+            } else if (pTotal === 1.0 && pFair > 1.0) {
+                recText = "🔥 <b>Буст Справедливости:</b> У вас так мало мобов, что система повысила базовый шанс спавна на +30%. Наслаждайтесь выживанием!";
+            } else {
+                recText = "✅ <b>Идеальные условия!</b> Никакие штрафы к ближайшему мобу не применяются.";
+            }
+            document.getElementById('recommendation-text').innerHTML = recText;
+        }
+
+        // --- 6. АНИМАЦИОННЫЙ ЦИКЛ ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); // Требуется для damping
+            renderer.render(scene, camera);
+        }
+        
+        // Ресайз окна
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Запуск
+        animate();
+        updateUIFromScene();
+    </script>
+</body>
+</html>
