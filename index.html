@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdaptiveMobs | Калькулятор Спавна</title>
+    <style>
+        :root {
+            --bg: #121212;
+            --accent: #9D68FF;
+            --accent-glow: rgba(157, 104, 255, 0.6);
+            --text: #FDFDFD;
+            --glass-bg: rgba(253, 253, 253, 0.05);
+            --glass-border: rgba(253, 253, 253, 0.1);
+            --glass-panel-bg: rgba(18, 18, 18, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        /* --- СЕВЕРНОЕ СИЯНИЕ (AURORA) --- */
+        .aurora {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 15% 50%, rgba(157, 104, 255, 0.35) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(100, 50, 200, 0.25) 0%, transparent 50%),
+                radial-gradient(circle at 50% 80%, rgba(60, 20, 150, 0.3) 0%, transparent 50%);
+            filter: blur(80px);
+            animation: aurora-move 12s infinite alternate ease-in-out;
+        }
+
+        @keyframes aurora-move {
+            0% { transform: scale(1) translate(0, 0); }
+            50% { transform: scale(1.1) translate(2%, -5%); }
+            100% { transform: scale(1.05) translate(-3%, 2%); }
+        }
+
+        /* --- КОНТЕЙНЕРЫ (GLASSMORPHISM) --- */
+        .container {
+            max-width: 1100px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 2rem;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        h1 {
+            grid-column: 1 / -1;
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            color: var(--text);
+            opacity: 0.9;
+            font-weight: 600;
+        }
+
+        /* --- ИНПУТЫ (ПОЛЗУНКИ) --- */
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .input-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+            opacity: 0.8;
+        }
+
+        .val-badge {
+            background: var(--glass-border);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            background: rgba(253, 253, 253, 0.1);
+            border-radius: 4px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px var(--accent-glow);
+            transition: transform 0.1s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* --- РЕЗУЛЬТАТЫ И ГРАФИКА --- */
+        .result-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .progress-circle {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: conic-gradient(var(--accent) 0%, rgba(253, 253, 253, 0.1) 0%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+            box-shadow: 0 0 30px rgba(157, 104, 255, 0.2);
+        }
+
+        .progress-inner {
+            width: 170px;
+            height: 170px;
+            border-radius: 50%;
+            background: var(--glass-panel-bg);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .progress-val {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--text);
+            text-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .progress-label {
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+
+        .factors-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 2rem;
+        }
+
+        .factor-card {
+            background: var(--glass-border);
+            padding: 10px;
+            border-radius: 14px;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+
+        .factor-card span {
+            display: block;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-top: 5px;
+        }
+
+        .good { color: #32d74b; }
+        .warn { color: #ffd60a; }
+        .bad { color: #ff453a; }
+
+        .recommendation {
+            background: rgba(157, 104, 255, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 1rem;
+            border-radius: 0 12px 12px 0;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            width: 100%;
+        }
+
+        .recommendation h3 {
+            margin-bottom: 5px;
+            font-size: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+            h1 { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="aurora"></div>
+
+    <div class="container">
+        <h1>Анализатор Спавнрейта</h1>
+
+        <!-- ЛЕВАЯ КОЛОНКА (ВВОД) -->
+        <div class="glass-card">
+            <h2>Параметры ситуации</h2>
+
+            <div class="input-group">
+                <div class="input-header">
+                    <label>Дистанция до моба (D)</label>
+                    <span class="val-badge" id="val-dist">25 бл.</span>
+                </div>
+                <input type="range" id="in-dist" min="0" max="150" value="25" step="1">
+            </div>
+
+            <div class="input-group">
+                <div class="input-header">
+                    <label>Ваша скорость (V)</label>
+                    <span class="val-badge" id="val-speed">0.0 м/с</span>
+                </div>
+                <input type="range" id="in-speed" min="0" max="20" value="0" step="0.5">
+            </div>
+
+            <div class="input-group">
+                <div class="input-header">
+                    <label>Глубина моба относительно вас (Y)</label>
+                    <span class="val-badge" id="val-dy">0 бл.</span>
+                </div>
+                <input type="range" id="in-dy" min="-60" max="20" value="0" step="1">
+            </div>
+
+            <div class="input-group">
+                <div class="input-header">
+                    <label>Turnover фермы (Смерти/Спавны)</label>
+                    <span class="val-badge" id="val-ratio">1.0</span>
+                </div>
+                <input type="range" id="in-ratio" min="0" max="1" value="1" step="0.05">
+            </div>
+
+            <div class="input-group">
+                <div class="input-header">
+                    <label>Ваша активность (Movement/Combat)</label>
+                    <span class="val-badge" id="val-act">0%</span>
+                </div>
+                <input type="range" id="in-act" min="0" max="100" value="0" step="5">
+            </div>
+
+            <div class="input-group">
+                <div class="input-header">
+                    <label>Игроков рядом (Group Limit)</label>
+                    <span class="val-badge" id="val-players">1 чел.</span>
+                </div>
+                <input type="range" id="in-players" min="1" max="10" value="1" step="1">
+            </div>
+
+            <div class="input-group">
+                <div class="input-header">
+                    <label>Ваших мобов в мире</label>
+                    <span class="val-badge" id="val-mobs">10 шт.</span>
+                </div>
+                <input type="range" id="in-mobs" min="0" max="500" value="10" step="5">
+            </div>
+        </div>
+
+        <!-- ПРАВАЯ КОЛОНКА (РЕЗУЛЬТАТ) -->
+        <div class="glass-card result-wrapper">
+            <h2>Итоговый шанс спавна</h2>
+            
+            <div class="progress-circle" id="circle">
+                <div class="progress-inner">
+                    <div class="progress-val" id="out-total">100%</div>
+                    <div class="progress-label">Вероятность</div>
+                </div>
+            </div>
+
+            <div class="factors-grid">
+                <div class="factor-card">Пончик (Dist)<span id="out-donut">x1.0</span></div>
+                <div class="factor-card">Скорость (Vel)<span id="out-vel">x1.0</span></div>
+                <div class="factor-card">Высота (Y)<span id="out-height">x1.0</span></div>
+                <div class="factor-card">Ферма (Turn)<span id="out-turn">x1.0</span></div>
+                <div class="factor-card">Лимит (Fair)<span id="out-fair">x1.0</span></div>
+                <div class="factor-card">Скрытый Буст<span id="out-boost">x1.0</span></div>
+            </div>
+
+            <div class="recommendation">
+                <h3>💡 Анализ & Рекомендация:</h3>
+                <p id="recommendation-text">Идеальные условия! Спавнрейт на максимуме. Отличное место для игры или постройки АФК-фермы.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Привязка UI элементов
+        const inputs =['dist', 'speed', 'dy', 'ratio', 'act', 'players', 'mobs'];
+        inputs.forEach(id => {
+            document.getElementById(`in-${id}`).addEventListener('input', (e) => {
+                // Обновление бейджиков
+                let val = e.target.value;
+                let suffix = '';
+                if(id === 'dist' || id === 'dy') suffix = ' бл.';
+                else if(id === 'speed') suffix = ' м/с';
+                else if(id === 'act') suffix = '%';
+                else if(id === 'players') suffix = ' чел.';
+                else if(id === 'mobs') suffix = ' шт.';
+                
+                document.getElementById(`val-${id}`).innerText = val + suffix;
+                calculate();
+            });
+        });
+
+        function formatMultiplier(val) {
+            let color = "good";
+            if(val < 0.95) color = "warn";
+            if(val < 0.4) color = "bad";
+            if(val > 1.0) color = "good"; // Boost
+            return `<span class="${color}">x${val.toFixed(2)}</span>`;
+        }
+
+        function calculate() {
+            // Чтение значений
+            let dist = parseFloat(document.getElementById('in-dist').value);
+            let speed = parseFloat(document.getElementById('in-speed').value);
+            let dy = parseFloat(document.getElementById('in-dy').value);
+            let ratio = parseFloat(document.getElementById('in-ratio').value);
+            let act = parseFloat(document.getElementById('in-act').value) / 100;
+            let players = parseInt(document.getElementById('in-players').value);
+            let mobs = parseInt(document.getElementById('in-mobs').value);
+
+            // 1. Правило Пончика (Distance)
+            let pDonut = 1.0;
+            if (dist < 10) pDonut = 0.0;
+            else if (dist < 20) pDonut = (dist - 10) / 10.0;
+            else if (dist <= 80) pDonut = 1.0;
+            else if (dist <= 100) pDonut = 1.0 - ((dist - 80) / 20.0);
+            else pDonut = 0.0;
+
+            // 2. Скорость (Velocity Exponential)
+            let pVel = 1.0;
+            if (speed > 5.5) {
+                pVel = Math.exp(-4.0 * (speed - 5.5));
+            }
+
+            // 3. Высота (Gaussian)
+            let pHeight = 1.0;
+            if (dy < -5) {
+                let x = Math.abs(dy) - 5;
+                let num = Math.pow(x - 12.0, 2);
+                let den = 2 * Math.pow(10.0, 2);
+                pHeight = Math.exp(-num / den);
+            }
+
+            // 4. Текучесть кадров (Turnover Sigmoid)
+            let pTurn = 1.0;
+            if (ratio <= 0.6) {
+                let sigmoid = 1.0 / (1.0 + Math.exp(8.0 * (0.3 - ratio)));
+                pTurn = sigmoid;
+                // Компенсация активностью
+                if (act > 0.1) {
+                    let boost = (1.0 - pTurn) * act * 0.7;
+                    pTurn = Math.min(1.0, pTurn + boost);
+                }
+            }
+
+            // 5. Справедливость и Лимиты (Fairness)
+            let pFair = 1.0;
+            let softLimit = 100 * (1.0 + (players - 1) * 0.7);
+            
+            if (mobs > softLimit) pFair = 0.4;
+            else if (mobs < softLimit / 2) pFair = 1.3;
+
+            // Итоговый расчет
+            let pTotal = pDonut * pVel * pHeight * pTurn * pFair;
+            if (pTotal > 1.0) pTotal = 1.0;
+            if (pTotal < 0.0) pTotal = 0.0;
+
+            let percent = (pTotal * 100).toFixed(0);
+
+            // Обновление UI графики
+            document.getElementById('out-total').innerText = percent + "%";
+            document.getElementById('circle').style.background = `conic-gradient(var(--accent) ${percent}%, rgba(253, 253, 253, 0.1) ${percent}%)`;
+
+            document.getElementById('out-donut').innerHTML = formatMultiplier(pDonut);
+            document.getElementById('out-vel').innerHTML = formatMultiplier(pVel);
+            document.getElementById('out-height').innerHTML = formatMultiplier(pHeight);
+            document.getElementById('out-turn').innerHTML = formatMultiplier(pTurn);
+            document.getElementById('out-fair').innerHTML = formatMultiplier(Math.min(1.0, pFair));
+            document.getElementById('out-boost').innerHTML = pFair > 1.0 ? formatMultiplier(pFair) : `<span class="good">x1.00</span>`;
+
+            // Обновление Рекомендаций (Аналитика)
+            let recText = "";
+            if (pDonut < 0.5) {
+                recText = "⚠️ <b>Дистанция:</b> Вы стоите слишком близко или далеко. Мобы спавнятся лучше всего в кольце от 20 до 80 блоков от вас.";
+            } else if (pVel < 0.8) {
+                recText = "🏃 <b>Скорость:</b> Вы двигаетесь слишком быстро. Сервер экономит ресурсы и не прогружает мобов, которых вы пробегаете.";
+            } else if (pHeight < 0.7) {
+                recText = "🦇 <b>Пещеры:</b> Алгоритм гасит спавн в глубоких пещерах под вами. Убедитесь, что платформа фермы находится на вашей высоте (Y).";
+            } else if (pTurn < 0.8) {
+                recText = "🚜 <b>Штраф Фермы:</b> В этом чанке мобы копятся и не умирают (низкий Turnover). Сделайте механизм авто-убийства быстрее ИЛИ начните активно бить мобов и ломать блоки, чтобы снять штраф Активностью.";
+            } else if (pFair < 0.5) {
+                recText = "🛑 <b>Лимит:</b> У вас в мире накопилось слишком много мобов! Убейте лишних мобов на ферме или пригласите друзей постоять рядом, чтобы расширить групповой лимит.";
+            } else if (pTotal === 1.0 && pFair > 1.0) {
+                recText = "🔥 <b>Скрытый Буст!</b> У вас мало мобов, поэтому система повысила шанс спавна на +30%. Наслаждайтесь игрой!";
+            } else {
+                recText = "✅ <b>Всё идеально!</b> Спавн работает на максимуме. Никаких штрафов не наложено.";
+            }
+
+            document.getElementById('recommendation-text').innerHTML = recText;
+        }
+
+        // Инициализация при загрузке
+        calculate();
+    </script>
+</body>
+</html>
